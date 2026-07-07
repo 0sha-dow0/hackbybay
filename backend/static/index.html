@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DepCover — Dependency Transplant Engine</title>
+<style>
+  :root { --bg:#0b0e14; --panel:#121721; --line:#1e2836; --fg:#c9d4e5; --dim:#7688a3; --acc:#4cc2ff; --ok:#3ad29f; --bad:#ff6b81; --warn:#ffcf6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px; }
+  header h1 { font-size:16px; margin:0; letter-spacing:.5px; }
+  header .tag { color:var(--dim); font-size:12px; }
+  .bar { padding:12px 20px; display:flex; gap:10px; flex-wrap:wrap; border-bottom:1px solid var(--line); }
+  button { background:#182234; color:var(--fg); border:1px solid var(--line); padding:8px 14px; border-radius:6px; cursor:pointer; font:inherit; }
+  button:hover { border-color:var(--acc); }
+  button:disabled { opacity:.4; cursor:default; }
+  button.primary { background:var(--acc); color:#04121c; border-color:var(--acc); font-weight:600; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:16px 20px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; min-height:180px; display:flex; flex-direction:column; }
+  .panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--dim); margin:0; padding:12px 14px; border-bottom:1px solid var(--line); }
+  .panel .body { padding:12px 14px; overflow:auto; max-height:420px; }
+  .cs { padding:6px 8px; border-left:2px solid var(--line); margin:4px 0; }
+  .cs.alias { border-left-color:var(--warn); }
+  .pill { display:inline-block; padding:1px 8px; border-radius:20px; font-size:11px; border:1px solid var(--line); }
+  .pill.alias { color:var(--warn); border-color:var(--warn); }
+  .cards { display:flex; flex-direction:column; gap:8px; }
+  .card { border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  .card.exec { border-color:var(--acc); }
+  .card h3 { margin:0 0 4px; font-size:13px; }
+  .card .meta { color:var(--dim); font-size:12px; }
+  .log .ev { padding:5px 0; border-bottom:1px dashed var(--line); }
+  .stage { color:var(--acc); }
+  .term-completed,.term-awaiting_review { color:var(--ok); } .term-contested { color:var(--warn); } .term-failed,.term-rejected { color:var(--bad); }
+  pre.diff { margin:0; white-space:pre-wrap; }
+  pre.diff .add { color:var(--ok); } pre.diff .del { color:var(--bad); }
+  .verdict { padding:8px 10px; border:1px solid var(--line); border-radius:8px; margin:6px 0; }
+  .approve { border-left:3px solid var(--ok); } .reject { border-left:3px solid var(--bad); }
+  .consensus { font-weight:600; margin:8px 0; }
+  .muted { color:var(--dim); }
+  .err { color:var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>▚ DepCover</h1>
+  <span class="tag">impact analysis + autonomous library transplant · axios → fetch</span>
+</header>
+<div class="bar">
+  <button id="scan" class="primary">1 · Scan victim repo</button>
+  <button id="fire" disabled>2 · Fire CVE incident</button>
+  <span id="status" class="muted"></span>
+</div>
+<div class="grid">
+  <div class="panel"><h2>Graph · surgery plan</h2><div class="body" id="graph"><span class="muted">Scan to build the call-site graph.</span></div></div>
+  <div class="panel"><h2>Underwriting · kill-test blast radius</h2><div class="body" id="under"><span class="muted">—</span></div></div>
+  <div class="panel"><h2>Mitigation → Pipeline</h2><div class="body" id="mit"><span class="muted">—</span></div><div class="body log" id="log"></div></div>
+  <div class="panel"><h2>Diff review · judge verdicts</h2><div class="body" id="review"><span class="muted">—</span></div></div>
+</div>
+<script>
+const TOKEN = "demo-token";
+const H = { "Authorization": "Bearer " + TOKEN, "Content-Type": "application/json" };
+const VICTIM = "https://github.com/depcover/victim-axios";
+let repoId=null, incidentId=null, transplantId=null;
+const $ = id => document.getElementById(id);
+const setStatus = (t,cls="muted") => { $("status").className=cls; $("status").textContent=t; };
+
+async function post(url, body){ const r=await fetch(url,{method:"POST",headers:H,body:JSON.stringify(body)}); if(!r.ok){throw new Error((await r.text()));} return r.json(); }
+async function get(url){ const r=await fetch(url,{headers:H}); if(!r.ok){throw new Error(await r.text());} return r.json(); }
+
+$("scan").onclick = async () => {
+  try{
+    setStatus("scanning…");
+    const d = await post("/repos", { url: VICTIM, owner: "demo" });
+    repoId = d.repo.id;
+    const sites = d.surgery_plan.call_sites;
+    $("graph").innerHTML = `<div class="muted">Target <b>${d.surgery_plan.target_package}</b> · ${d.surgery_plan.affected_files.length} files · ${sites.length} call sites</div>` +
+      sites.map(s=>`<div class="cs ${s.is_aliased?'alias':''}"><b>${s.file_path}</b>:${s.line} · <code>${s.symbol}</code> ${s.is_aliased?`<span class="pill alias">aliased → ${s.alias}</span>`:''}</div>`).join("");
+    const u = d.underwriting;
+    $("under").innerHTML = `<div>Affected files: <b>${u.affected_file_count}</b></div><div>Failing tests captured: <b>${u.failing_tests.length}</b></div>` +
+      (u.failing_tests.length? "<ul>"+u.failing_tests.map(t=>`<li class="err">${t}</li>`).join("")+"</ul>" : `<div class="muted">graph proves ${u.affected_file_count} files touch the target (grep misses the aliased import).</div>`) +
+      (u.warnings.length?`<div class="muted">warnings: ${u.warnings.map(w=>w.shape).join(", ")}</div>`:"");
+    $("fire").disabled=false; setStatus("scanned ✓","muted");
+  }catch(e){ setStatus("scan failed: "+e.message,"err"); }
+};
+
+$("fire").onclick = async () => {
+  try{
+    setStatus("firing CVE…");
+    const d = await post("/incidents", { repo_id: repoId });
+    incidentId = d.incident.id;
+    const opts = d.options.options;
+    $("mit").innerHTML = `<div class="cards">` + opts.map(o=>`
+      <div class="card ${o.executable?'exec':''}">
+        <h3>${o.title} ${o.executable?'<span class="pill">executed end-to-end</span>':''}</h3>
+        <div class="meta">effort: ${o.effort} · blast: ${o.blast_radius} · residual: ${o.residual_risk}</div>
+        <div>${o.rationale}</div>
+        ${o.executable?`<button class="primary" style="margin-top:8px" onclick="runTransplant('${o.kind}')">Run transplant ▶</button>`:''}
+      </div>`).join("") + `</div>`;
+    setStatus("incident open — choose a strategy","muted");
+  }catch(e){ setStatus("incident failed: "+e.message,"err"); }
+};
+
+window.runTransplant = async (kind) => {
+  try{
+    $("log").innerHTML=""; setStatus("running pipeline…","muted");
+    await post(`/incidents/${incidentId}/strategy`, { strategy: kind });
+    transplantId = "transplant-" + incidentId;
+    const es = new EventSource(`/incidents/${incidentId}/stream`);
+    es.onmessage = (m) => {
+      const e = JSON.parse(m.data);
+      const div = document.createElement("div");
+      div.className="ev";
+      div.innerHTML = `<span class="stage">${e.stage}</span> · ${e.message} ${e.terminal?`<b class="term-${e.stage}">[${e.stage.toUpperCase()}]</b>`:''}`;
+      $("log").appendChild(div); $("log").scrollTop=$("log").scrollHeight;
+      if(e.terminal){ es.close(); loadReview(); }
+    };
+    es.onerror = () => { es.close(); };
+  }catch(e){ setStatus("pipeline failed: "+e.message,"err"); }
+};
+
+async function loadReview(){
+  try{
+    const t = await get(`/transplants/${transplantId}`);
+    const c = t.consensus;
+    const diffs = t.diff.map(f=>`<div><b>${f.path}</b><pre class="diff">${colorDiff(f.unified_diff)}</pre></div>`).join("");
+    const verdicts = c.verdicts.map(v=>`<div class="verdict ${v.verdict}"><b>${v.judge_name}</b> — <span class="${v.verdict==='approve'?'':'err'}">${v.verdict.toUpperCase()}</span><div class="muted">${escapeHtml(v.rationale)}</div></div>`).join("");
+    const cls = c.approved?'term-completed':'term-contested';
+    $("review").innerHTML =
+      `<div class="consensus ${cls}">Consensus: ${c.approved?'APPROVED':'CONTESTED'} · ${c.approvals}/${c.panel_size} judges approve</div>` +
+      verdicts + `<h3 style="margin:10px 0 4px">Diff</h3>` + diffs +
+      `<div style="margin-top:10px"><button class="primary" onclick="accept()">Accept all → open PR</button> <button onclick="reject()">Reject</button></div>` +
+      `<div id="pr" class="muted" style="margin-top:8px"></div>`;
+    setStatus("awaiting human review","muted");
+  }catch(e){ $("review").innerHTML=`<span class="err">no transplant to review (pipeline may have failed): ${escapeHtml(e.message)}</span>`; }
+}
+
+window.accept = async () => {
+  try{
+    const t = await get(`/transplants/${transplantId}`);
+    const per_file = t.diff.map(f=>({ path:f.path, kind:"accept", reason:null }));
+    const d = await post(`/transplants/${transplantId}/review`, { decision:"accept_all", per_file, reason:null });
+    $("pr").innerHTML = d.pull_request ? `PR opened: <a style="color:var(--acc)" href="${d.pull_request.url}">#${d.pull_request.number}</a> · status ${d.status}` : `status: ${d.status}`;
+  }catch(e){ $("pr").innerHTML=`<span class="err">${escapeHtml(e.message)}</span>`; }
+};
+window.reject = async () => {
+  try{
+    const t = await get(`/transplants/${transplantId}`);
+    const per_file = t.diff.map((f,i)=>({ path:f.path, kind: i===0?"reject":"accept", reason: i===0?"needs manual review":null }));
+    const d = await post(`/transplants/${transplantId}/review`, { decision:"reject", per_file, reason:"rejected on review" });
+    $("pr").innerHTML = `status: ${d.status} (PR blocked)`;
+  }catch(e){ $("pr").innerHTML=`<span class="err">${escapeHtml(e.message)}</span>`; }
+};
+
+function colorDiff(s){ return escapeHtml(s).split("\n").map(l=> l.startsWith("+")?`<span class="add">${l}</span>`: l.startsWith("-")?`<span class="del">${l}</span>`: l).join("\n"); }
+function escapeHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+</script>
+</body>
+</html>
