@@ -24,7 +24,7 @@ from backend.ports.auth import AuthProvider
 from backend.ports.event_sink import EventSink
 from backend.ports.github import GitHubClient
 from backend.ports.graph_store import GraphStore
-from backend.ports.llm import LlmClientFactory, LlmResponse
+from backend.ports.llm import LlmClient, LlmClientFactory, LlmResponse
 from backend.ports.record_store import RecordStore
 from backend.ports.repo_content import RepoContentProvider
 from backend.ports.sandbox import SandboxRunner
@@ -134,10 +134,38 @@ def _fake_llm_scripted() -> Mapping[LlmRole, Sequence[LlmResponse]]:
     }
 
 
+_LIVE_JUDGE_ROLES: frozenset[LlmRole] = frozenset(
+    {
+        LlmRole.JUDGE_CORRECTNESS,
+        LlmRole.JUDGE_SECURITY,
+        LlmRole.JUDGE_MINIMALITY,
+        LlmRole.JUDGE_RECIPE,
+    }
+)
+
+
+class HybridLlmClientFactory(LlmClientFactory):
+    def __init__(
+        self,
+        live: LlmClientFactory,
+        fake: LlmClientFactory,
+        live_roles: frozenset[LlmRole],
+    ) -> None:
+        self._live = live
+        self._fake = fake
+        self._live_roles = live_roles
+
+    def for_role(self, role: LlmRole) -> Result[LlmClient, ConfigError]:
+        if role in self._live_roles:
+            return self._live.for_role(role)
+        return self._fake.for_role(role)
+
+
 def _build_llm(settings: Settings) -> LlmClientFactory:
+    fake = FakeLlmClientFactory(_fake_llm_scripted())
     if settings.use_fakes:
-        return FakeLlmClientFactory(_fake_llm_scripted())
-    return LiveLlmClientFactory(settings)
+        return fake
+    return HybridLlmClientFactory(LiveLlmClientFactory(settings), fake, _LIVE_JUDGE_ROLES)
 
 
 def _build_graph_store(settings: Settings) -> GraphStore:
