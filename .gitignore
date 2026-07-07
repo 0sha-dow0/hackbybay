@@ -1,0 +1,20 @@
+# Secrets — never commit
+.env
+backend/.env
+*.env.local
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/node_modules/
+
+# OS
+.DS_Store

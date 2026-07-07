@@ -1,0 +1,20 @@
+from typing import Final
+
+TARGET_PACKAGE: Final[str] = "axios"
+REPLACEMENT_PACKAGE: Final[str] = "fetch"
+
+UNTRUSTED_OPEN_TEMPLATE: Final[str] = '<untrusted_file path="{path}">'
+UNTRUSTED_CLOSE: Final[str] = "</untrusted_file>"
+
+CONSENSUS_APPROVALS_REQUIRED: Final[int] = 3
+CONSENSUS_PANEL_SIZE: Final[int] = 4
+DEGRADED_PANEL_SIZE: Final[int] = 2
+DEGRADED_APPROVALS_REQUIRED: Final[int] = 2
+
+BEHAVIORAL_BATTERY_SIZE: Final[int] = 10
+TRANSPLANT_MAX_ATTEMPTS: Final[int] = 2
+
+
+assert CONSENSUS_APPROVALS_REQUIRED <= CONSENSUS_PANEL_SIZE
+assert DEGRADED_PANEL_SIZE < CONSENSUS_PANEL_SIZE
+assert DEGRADED_APPROVALS_REQUIRED <= DEGRADED_PANEL_SIZE
