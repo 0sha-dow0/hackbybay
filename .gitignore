@@ -5,6 +5,7 @@ backend/.env
 
 # Python
 backend/.venv/
+.pycache/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -15,6 +16,7 @@ __pycache__/
 node_modules/
 frontend/dist/
 frontend/node_modules/
+vulnerable-crud/vulnerable.db
 
 # OS
 .DS_Store

@@ -7,9 +7,11 @@ dependencies = [
     "pydantic>=2",
     "pydantic-settings",
     "fastapi",
-    "uvicorn",
+    "uvicorn[standard]",
     "sse-starlette",
     "httpx",
+    "neo4j>=5",
+    "python-dotenv",
 ]
 
 [project.optional-dependencies]

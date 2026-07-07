@@ -1,0 +1,8 @@
+pydantic>=2
+pydantic-settings
+fastapi
+uvicorn[standard]
+sse-starlette
+httpx
+neo4j>=5
+python-dotenv

@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>DepCover — Dependency Transplant Engine</title>
+<title>CascAIde — Dependency Transplant Engine</title>
 <style>
   :root { --bg:#0b0e14; --panel:#121721; --line:#1e2836; --fg:#c9d4e5; --dim:#7688a3; --acc:#4cc2ff; --ok:#3ad29f; --bad:#ff6b81; --warn:#ffcf6b; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
   header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px; }
-  header h1 { font-size:16px; margin:0; letter-spacing:.5px; }
+  header h1 { font-family:Georgia,serif; font-size:21px; margin:0; letter-spacing:0; }
+  header h1 .ai { color:#a879ff; font-style:italic; }
   header .tag { color:var(--dim); font-size:12px; }
   .bar { padding:12px 20px; display:flex; gap:10px; flex-wrap:wrap; border-bottom:1px solid var(--line); }
   button { background:#182234; color:var(--fg); border:1px solid var(--line); padding:8px 14px; border-radius:6px; cursor:pointer; font:inherit; }
@@ -43,7 +44,7 @@
 </head>
 <body>
 <header>
-  <h1>▚ DepCover</h1>
+  <h1>▚ Casc<span class="ai">AI</span>de</h1>
   <span class="tag">impact analysis + autonomous library transplant · axios → fetch</span>
 </header>
 <div class="bar">

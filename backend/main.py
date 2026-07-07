@@ -6,6 +6,7 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
@@ -27,7 +28,10 @@ from backend.services.incident_state import transition
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
+_ROOT = Path(__file__).resolve().parent.parent
 _STATIC = Path(__file__).resolve().parent / "static"
+_FRONTEND_DIST = _ROOT / "frontend" / "dist"
+_FRONTEND_ASSETS = _FRONTEND_DIST / "assets"
 _CVE_SUMMARY = "CVE-2026-0001: axios request handling flaw enables SSRF on unvalidated redirects."
 
 
@@ -67,7 +71,13 @@ class ReviewRequest(BaseModel):
 
 
 def create_app(container: Container) -> FastAPI:
-    app = FastAPI(title="DepCover")
+    app = FastAPI(title="CascAIde")
+    if _FRONTEND_ASSETS.exists():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=_FRONTEND_ASSETS),
+            name="frontend-assets",
+        )
     pipeline_tasks: set[asyncio.Task[Any]] = set()
     user_dep = require_user(container)
 
@@ -77,6 +87,8 @@ def create_app(container: Container) -> FastAPI:
 
     @app.get("/")
     def index() -> FileResponse:
+        if (_FRONTEND_DIST / "index.html").exists():
+            return FileResponse(_FRONTEND_DIST / "index.html")
         return FileResponse(_STATIC / "index.html")
 
     @app.post("/repos")
